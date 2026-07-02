@@ -13,6 +13,8 @@ import { LocalSubagentIndicator } from "@/local/subagent-indicator"
 import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
 import { disposeAllInstancesAndEmitGlobalDisposed } from "@/server/global-lifecycle"
 
+process.stderr.write("[local-subagent-indicator] WORKER FILE LOADED\n")
+
 Heap.start()
 
 const onUnhandledRejection = (_error: unknown) => {}
@@ -27,13 +29,24 @@ GlobalBus.on("event", (event) => {
   Rpc.emit("global.event", event)
 })
 
-AppRuntime.runFork(
-  Layer.launch(AppNodeBuilder.build(LocalSubagentIndicator.node)).pipe(
-    Effect.tapError((error) =>
-      Effect.sync(() => process.stderr.write(`[local-subagent-indicator] launch failed: ${String(error)}\n`)),
+try {
+  AppRuntime.runFork(
+    Layer.launch(AppNodeBuilder.build(LocalSubagentIndicator.node)).pipe(
+      Effect.tapError((error) =>
+        Effect.sync(() =>
+          process.stderr.write(`[local-subagent-indicator] launch failed: ${String(error)}\n`),
+        ),
+      ),
+      Effect.tap(() =>
+        Effect.sync(() =>
+          process.stderr.write("[local-subagent-indicator] WORKER LAUNCH OK\n"),
+        ),
+      ),
     ),
-  ),
-)
+  )
+} catch (e) {
+  process.stderr.write(`[local-subagent-indicator] WORKER LAUNCH THREW: ${String(e)}\n`)
+}
 
 let server: Awaited<ReturnType<typeof Server.listen>> | undefined
 
