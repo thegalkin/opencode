@@ -168,6 +168,18 @@ export function Prompt(props: PromptProps) {
   const { theme, syntax } = useTheme()
   const kv = useKV()
   const animationsEnabled = createMemo(() => kv.get("animations_enabled", true))
+  const subagentCount = createMemo(() => {
+    if (!props.sessionID) return 0
+    return sync.data.local_subagent_indicator?.[props.sessionID]?.count ?? 0
+  })
+  const subagentFrames = ["🐟", "🐠", "🐡"]
+  const [subagentFrame, setSubagentFrame] = createSignal(0)
+  onMount(() => {
+    const interval = setInterval(() => {
+      setSubagentFrame((f) => (f + 1) % subagentFrames.length)
+    }, 300)
+    onCleanup(() => clearInterval(interval))
+  })
   const list = createMemo(() => props.placeholders?.normal ?? [])
   const shell = createMemo(() => props.placeholders?.shell ?? [])
   const fileContextEnabled = createMemo(() => kv.get("file_context_enabled", true))
@@ -1504,6 +1516,19 @@ export function Prompt(props: PromptProps) {
           />
         </box>
         <box width="100%" flexDirection="row" justifyContent="space-between">
+          <Show when={subagentCount() > 0}>
+            <box flexDirection="row" gap={1} flexShrink={0} marginRight={2}>
+              <Show
+                when={animationsEnabled()}
+                fallback={<text fg={theme.accent}>🐟</text>}
+              >
+                <text fg={theme.accent}>{subagentFrames[subagentFrame()]}</text>
+              </Show>
+              <text fg={theme.accent}>
+                {subagentCount()} subagent{subagentCount() > 1 ? "s" : ""}
+              </text>
+            </box>
+          </Show>
           <Switch>
             <Match when={status().type !== "idle"}>
               <box

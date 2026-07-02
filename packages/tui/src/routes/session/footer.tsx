@@ -17,10 +17,6 @@ export function Footer() {
     if (route.data.type !== "session") return []
     return sync.data.permission[route.data.sessionID] ?? []
   })
-  const localIndicator = createMemo(() => {
-    if (route.data.type !== "session") return undefined
-    return sync.data.local_subagent_indicator[route.data.sessionID]
-  })
   const directory = useDirectory()
   const connected = useConnected()
 
@@ -68,12 +64,6 @@ export function Footer() {
               <text fg={theme.warning}>
                 <span style={{ fg: theme.warning }}>△</span> {permissions().length} Permission
                 {permissions().length > 1 ? "s" : ""}
-              </text>
-            </Show>
-            <Show when={(localIndicator()?.count ?? 0) > 0}>
-              <text fg={theme.text}>
-                <span style={{ fg: theme.accent }}>⏳</span> {localIndicator()!.count} subagent
-                {localIndicator()!.count > 1 ? "s" : ""}
               </text>
             </Show>
             <text fg={theme.text}>
