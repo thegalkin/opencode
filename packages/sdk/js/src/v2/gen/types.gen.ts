@@ -93,6 +93,7 @@ export type Event =
   | EventWorktreeFailed
   | EventServerConnected
   | EventGlobalDisposed
+  | EventLocalSubagentIndicator
   | EventServerInstanceDisposed
 
 export type QuestionReplied = {
@@ -690,10 +691,6 @@ export type SessionStatus =
     }
   | {
       type: "busy"
-    }
-  | {
-      type: "waiting"
-      subagents: number
     }
 
 export type QuestionOption = {
@@ -1602,6 +1599,16 @@ export type GlobalEvent = {
         type: "global.disposed"
         properties: {
           [key: string]: unknown
+        }
+      }
+    | {
+        id: string
+        type: "local.subagent.indicator"
+        properties: {
+          sessionID: string
+          info: {
+            count: number
+          }
         }
       }
     | EventServerInstanceDisposed
@@ -2940,6 +2947,7 @@ export type V2Event =
   | WorktreeFailed
   | ServerConnected
   | GlobalDisposed
+  | LocalSubagentIndicator
 
 export type V2EventStream = string
 
@@ -6104,6 +6112,26 @@ export type GlobalDisposed = {
   }
 }
 
+export type LocalSubagentIndicator = {
+  id: string
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "local.subagent.indicator"
+  durable?: {
+    aggregateID: string
+    seq: number
+    version: number
+  }
+  location?: LocationRef
+  data: {
+    sessionID: string
+    info: {
+      count: number
+    }
+  }
+}
+
 export type QuestionV2Request = {
   id: string
   sessionID: string
@@ -7048,6 +7076,17 @@ export type EventGlobalDisposed = {
   type: "global.disposed"
   properties: {
     [key: string]: unknown
+  }
+}
+
+export type EventLocalSubagentIndicator = {
+  id: string
+  type: "local.subagent.indicator"
+  properties: {
+    sessionID: string
+    info: {
+      count: number
+    }
   }
 }
 

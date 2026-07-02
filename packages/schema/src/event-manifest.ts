@@ -8,6 +8,7 @@ import { FileSystemWatcher } from "./filesystem-watcher"
 import { InstallationEvent } from "./installation-event"
 import { Integration } from "./integration"
 import { LegacyEvent } from "./legacy-event"
+import { LocalSubagentIndicatorEvent } from "./local-subagent-indicator-event"
 import { LspEvent } from "./lsp-event"
 import { McpEvent } from "./mcp-event"
 import { ModelsDev } from "./models-dev"
@@ -79,6 +80,7 @@ export const Definitions = Event.inventory(
   ...WorkspaceEvent.Definitions,
   ...WorktreeEvent.Definitions,
   ...ServerEvent.Definitions,
+  ...LocalSubagentIndicatorEvent.Definitions,
 )
 export const Latest = Event.latest(Definitions)
 export { Durable }

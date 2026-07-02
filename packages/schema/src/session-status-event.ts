@@ -29,10 +29,6 @@ export const Info = Schema.Union([
   Schema.Struct({
     type: Schema.Literal("busy"),
   }),
-  Schema.Struct({
-    type: Schema.Literal("waiting"),
-    subagents: NonNegativeInt,
-  }),
 ]).annotate({ identifier: "SessionStatus" })
 export type Info = Schema.Schema.Type<typeof Info>
 

@@ -84,6 +84,9 @@ export const {
       session_status: {
         [sessionID: string]: SessionStatus
       }
+      local_subagent_indicator: {
+        [sessionID: string]: { count: number }
+      }
       session_diff: {
         [sessionID: string]: SnapshotFileDiff[]
       }
@@ -126,6 +129,7 @@ export const {
       provider_default: {},
       session: [],
       session_status: {},
+      local_subagent_indicator: {},
       session_diff: {},
       todo: {},
       message: {},
@@ -437,6 +441,10 @@ export const {
           break
         }
       }
+    })
+
+    event.on("local.subagent.indicator", (e) => {
+      setStore("local_subagent_indicator", e.properties.sessionID, e.properties.info)
     })
 
     const exit = useExit()

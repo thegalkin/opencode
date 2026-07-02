@@ -17,9 +17,9 @@ export function Footer() {
     if (route.data.type !== "session") return []
     return sync.data.permission[route.data.sessionID] ?? []
   })
-  const sessionStatus = createMemo(() => {
+  const localIndicator = createMemo(() => {
     if (route.data.type !== "session") return undefined
-    return sync.data.session_status[route.data.sessionID]
+    return sync.data.local_subagent_indicator[route.data.sessionID]
   })
   const directory = useDirectory()
   const connected = useConnected()
@@ -70,16 +70,11 @@ export function Footer() {
                 {permissions().length > 1 ? "s" : ""}
               </text>
             </Show>
-            <Show when={(() => {
-              const status = sessionStatus()
-              return status?.type === "waiting" ? status : undefined
-            })()}>
-              {(status) => (
-                <text fg={theme.text}>
-                  <span style={{ fg: theme.accent }}>⏳</span> {status().subagents} subagent
-                  {status().subagents > 1 ? "s" : ""}
-                </text>
-              )}
+            <Show when={(localIndicator()?.count ?? 0) > 0}>
+              <text fg={theme.text}>
+                <span style={{ fg: theme.accent }}>⏳</span> {localIndicator()!.count} subagent
+                {localIndicator()!.count > 1 ? "s" : ""}
+              </text>
             </Show>
             <text fg={theme.text}>
               <span style={{ fg: lsp().length > 0 ? theme.success : theme.textMuted }}>•</span> {lsp().length} LSP

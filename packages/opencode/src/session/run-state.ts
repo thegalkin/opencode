@@ -3,7 +3,7 @@ import { InstanceState } from "@/effect/instance-state"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { Runner } from "@/effect/runner"
 import { BackgroundJob } from "@/background/job"
-import { Effect, Latch, Layer, PubSub, Scope, Context } from "effect"
+import { Effect, Latch, Layer, Scope, Context } from "effect"
 import { Session } from "./session"
 import { SessionID } from "./schema"
 import { SessionStatus } from "./status"
@@ -36,7 +36,6 @@ const layer = Layer.effect(
       Effect.fn("SessionRunState.state")(function* () {
         const scope = yield* Scope.Scope
         const runners = new Map<SessionID, Runner.Runner<SessionV1.WithParts>>()
-        const subagentCounts = new Map<SessionID, number>()
         yield* Effect.addFinalizer(
           Effect.fnUntraced(function* () {
             yield* Effect.forEach(runners.values(), (runner) => runner.cancel, {
@@ -44,26 +43,11 @@ const layer = Layer.effect(
               discard: true,
             })
             runners.clear()
-            subagentCounts.clear()
           }),
         )
-        return { runners, scope, subagentCounts }
+        return { runners, scope }
       }),
     )
-
-    const setStatusForCounts = Effect.fn("SessionRunState.setStatusForCounts")(function* (
-      sessionID: SessionID,
-      count: number,
-    ) {
-      const data = yield* InstanceState.get(state)
-      if (data.runners.get(sessionID)?.busy) {
-        yield* status.set(sessionID, { type: "busy" })
-      } else if (count > 0) {
-        yield* status.set(sessionID, { type: "waiting", subagents: count })
-      } else {
-        yield* status.set(sessionID, { type: "idle" })
-      }
-    })
 
     const runner = Effect.fn("SessionRunState.runner")(function* (
       sessionID: SessionID,
@@ -75,12 +59,7 @@ const layer = Layer.effect(
       const next = Runner.make<SessionV1.WithParts>(data.scope, {
         onIdle: Effect.gen(function* () {
           data.runners.delete(sessionID)
-          const count = data.subagentCounts.get(sessionID) ?? 0
-          if (count > 0) {
-            yield* status.set(sessionID, { type: "waiting", subagents: count })
-          } else {
-            yield* status.set(sessionID, { type: "idle" })
-          }
+          yield* status.set(sessionID, { type: "idle" })
         }),
         onBusy: status.set(sessionID, { type: "busy" }),
         onInterrupt,
@@ -96,9 +75,8 @@ const layer = Layer.effect(
     })
 
     const cancel = Effect.fn("SessionRunState.cancel")(function* (sessionID: SessionID) {
-      const data = yield* InstanceState.get(state)
-      data.subagentCounts.delete(sessionID)
       yield* cancelBackgroundJobs(background, sessionID)
+      const data = yield* InstanceState.get(state)
       const existing = data.runners.get(sessionID)
       if (!existing) {
         yield* status.set(sessionID, { type: "idle" })
@@ -125,30 +103,6 @@ const layer = Layer.effect(
         .startShell(work, ready)
         .pipe(Effect.catchTag("RunnerBusy", () => Effect.fail(busyError(sessionID))))
     })
-
-    yield* Effect.scoped(
-      Effect.gen(function* () {
-        const subscription = yield* background.subscribe()
-        yield* Effect.forkScoped(
-          Effect.gen(function* () {
-            while (true) {
-              const event: BackgroundJob.LifecycleEvent = yield* PubSub.take(subscription)
-              const parent = event.info.metadata?.parentSessionId
-              if (typeof parent !== "string") continue
-              const sessionID = SessionID.make(parent)
-              const data = yield* InstanceState.get(state)
-              const next =
-                event.type === "started"
-                  ? (data.subagentCounts.get(sessionID) ?? 0) + 1
-                  : Math.max(0, (data.subagentCounts.get(sessionID) ?? 0) - 1)
-              if (next === 0) data.subagentCounts.delete(sessionID)
-              else data.subagentCounts.set(sessionID, next)
-              yield* setStatusForCounts(sessionID, next)
-            }
-          }).pipe(Effect.forever),
-        )
-      }),
-    )
 
     return Service.of({ assertNotBusy, cancel, ensureRunning, startShell })
   }),
