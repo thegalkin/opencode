@@ -26,7 +26,9 @@ function mapWorktreeError<A, R>(self: Effect.Effect<A, Worktree.Error, R>) {
 
 export const experimentalHandlers = HttpApiBuilder.group(InstanceHttpApi, "experimental", (handlers) =>
   Effect.gen(function* () {
+    yield* Effect.sync(() => process.stderr.write("[local-subagent-indicator] EXPERIMENTAL_HANDLERS BUILDING\n"))
     yield* LocalSubagentIndicator.Service
+    yield* Effect.sync(() => process.stderr.write("[local-subagent-indicator] EXPERIMENTAL_HANDLERS BUILT\n"))
     const account = yield* Account.Service
     const agents = yield* Agent.Service
     const config = yield* Config.Service

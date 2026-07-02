@@ -32,6 +32,7 @@ const layer = Layer.effect(
 
     yield* Effect.forkScoped(
       Effect.gen(function* () {
+        let tickCount = 0
         while (true) {
           const jobs = yield* background.list()
           const next = new Map<SessionID, number>()
@@ -65,9 +66,13 @@ const layer = Layer.effect(
             }
           }
 
-          if (published > 0) {
-            yield* Effect.logDebug(
-              `[local-subagent-indicator] tick: jobs=${jobs.length} running=${next.size} published=${published}`,
+          const total = Array.from(next.values()).reduce((a, b) => a + b, 0)
+          tickCount++
+          if (tickCount % 5 === 0 || published > 0) {
+            yield* Effect.sync(() =>
+              process.stderr.write(
+                `[local-subagent-indicator] tick#${tickCount}: jobs=${jobs.length} running=${total} published=${published}\n`,
+              ),
             )
           }
 
