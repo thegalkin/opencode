@@ -14,7 +14,6 @@ import { useServerSync } from "@/context/server-sync"
 import { useLayout } from "@/context/layout"
 import { useFile } from "@/context/file"
 import { useLanguage } from "@/context/language"
-import { usePlatform } from "@/context/platform"
 import { useSettings } from "@/context/settings"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { createSessionTabs } from "@/pages/session/helpers"
@@ -270,7 +269,6 @@ function createSessionEntries(props: {
 export function DialogSelectFile(props: { mode?: DialogSelectFileMode; onOpenFile?: (path: string) => void }) {
   const command = useCommand()
   const language = useLanguage()
-  const platform = usePlatform()
   const settings = useSettings()
   const layout = useLayout()
   const file = useFile()
@@ -391,7 +389,7 @@ export function DialogSelectFile(props: { mode?: DialogSelectFileMode; onOpenFil
     state.cleanup?.()
   })
 
-  if (filesOnly() && platform.platform === "desktop" && settings.general.newLayoutDesigns()) {
+  if (filesOnly() && settings.general.newLayoutDesigns()) {
     return (
       <DialogSelectFileV2
         server={serverSDK().server}

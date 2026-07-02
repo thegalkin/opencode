@@ -7938,6 +7938,7 @@ export type FindFilesData = {
     query: string
     dirs?: "true" | "false"
     type?: "file" | "directory"
+    fallback?: "none" | "glob"
     limit?: number
   }
   url: "/find/file"
