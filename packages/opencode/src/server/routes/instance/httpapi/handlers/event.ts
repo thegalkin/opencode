@@ -8,7 +8,6 @@ import { HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import * as Sse from "effect/unstable/encoding/Sse"
 import { EventApi } from "../groups/event"
-import { LocalSubagentIndicator } from "@/local/subagent-indicator"
 
 function eventData(data: unknown): Sse.Event {
   return {
@@ -90,7 +89,6 @@ function eventResponse(events: EventV2.Interface) {
 export const eventHandlers = HttpApiBuilder.group(EventApi, "event", (handlers) =>
   Effect.gen(function* () {
     const events = yield* EventV2Bridge.Service
-    yield* LocalSubagentIndicator.Service
     return handlers.handleRaw(
       "subscribe",
       Effect.fn("EventHttpApi.subscribe")(function* () {
