@@ -12,13 +12,17 @@ export class Service extends Context.Service<Service, {}>()("@opencode/LocalSuba
 const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
+    yield* Effect.sync(() => process.stderr.write("[local-subagent-indicator] LAYER BUILDING\n"))
+
     const flags = yield* RuntimeFlags.Service
 
     if (!flags.experimentalLocalSubagentIndicator) {
-      yield* Effect.logDebug("[local-subagent-indicator] flag off; sidecar is no-op")
+      yield* Effect.sync(() => process.stderr.write("[local-subagent-indicator] flag off; sidecar is no-op\n"))
+      yield* Effect.logInfo("[local-subagent-indicator] flag off; sidecar is no-op")
       return Service.of({})
     }
 
+    yield* Effect.sync(() => process.stderr.write("[local-subagent-indicator] flag on; starting polling sidecar\n"))
     yield* Effect.logInfo("[local-subagent-indicator] flag on; starting polling sidecar")
 
     const background = yield* BackgroundJob.Service
