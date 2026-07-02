@@ -66,6 +66,8 @@ import { SessionProjector } from "@opencode-ai/core/session/projector"
 import { SessionV2 } from "@opencode-ai/core/session"
 import { SessionExecution } from "@opencode-ai/core/session/execution"
 import * as SessionExecutionLocal from "@opencode-ai/core/session/execution/local"
+import { LocalSubagentIndicator } from "@/local/subagent-indicator"
+import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
 import { lazy } from "@/util/lazy"
 import { CorsConfig, isAllowedCorsOrigin, type CorsOptions } from "@opencode-ai/server/cors"
 import { serveUIEffect } from "@/server/shared/ui"
@@ -306,6 +308,7 @@ export function createRoutes(
     Layer.provide(locationServiceMapV2),
 
     Layer.provide(AppNodeBuilderV1.build(app)),
+    Layer.provideMerge(AppNodeBuilder.build(LocalSubagentIndicator.node)),
   )
 }
 
