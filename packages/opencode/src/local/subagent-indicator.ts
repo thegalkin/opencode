@@ -15,8 +15,11 @@ const layer = Layer.effect(
     const flags = yield* RuntimeFlags.Service
 
     if (!flags.experimentalLocalSubagentIndicator) {
+      yield* Effect.logDebug("[local-subagent-indicator] flag off; sidecar is no-op")
       return Service.of({})
     }
+
+    yield* Effect.logInfo("[local-subagent-indicator] flag on; starting polling sidecar")
 
     const background = yield* BackgroundJob.Service
     const events = yield* EventV2Bridge.Service
@@ -37,12 +40,14 @@ const layer = Layer.effect(
             next.set(sessionID, (next.get(sessionID) ?? 0) + 1)
           }
 
+          let published = 0
           for (const [sessionID, count] of next) {
             if (count !== counts.get(sessionID)) {
               yield* events.publish(LocalSubagentIndicatorEvent.Update, {
                 sessionID,
                 info: { count },
               })
+              published++
             }
           }
 
@@ -52,7 +57,14 @@ const layer = Layer.effect(
                 sessionID,
                 info: { count: 0 },
               })
+              published++
             }
+          }
+
+          if (published > 0) {
+            yield* Effect.logDebug(
+              `[local-subagent-indicator] tick: jobs=${jobs.length} running=${next.size} published=${published}`,
+            )
           }
 
           counts.clear()
