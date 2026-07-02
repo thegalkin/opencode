@@ -4,6 +4,7 @@ import { BackgroundJob } from "@/background/job"
 import { Config } from "@/config/config"
 import { InstanceState } from "@/effect/instance-state"
 import { RuntimeFlags } from "@/effect/runtime-flags"
+import { LocalSubagentIndicator } from "@/local/subagent-indicator"
 import { MCP } from "@/mcp"
 import { Project } from "@/project/project"
 import { Session } from "@/session/session"
@@ -25,6 +26,7 @@ function mapWorktreeError<A, R>(self: Effect.Effect<A, Worktree.Error, R>) {
 
 export const experimentalHandlers = HttpApiBuilder.group(InstanceHttpApi, "experimental", (handlers) =>
   Effect.gen(function* () {
+    yield* LocalSubagentIndicator.Service
     const account = yield* Account.Service
     const agents = yield* Agent.Service
     const config = yield* Config.Service

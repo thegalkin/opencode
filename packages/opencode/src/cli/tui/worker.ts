@@ -8,9 +8,7 @@ import { ServerAuth } from "@/server/auth"
 import { writeHeapSnapshot } from "node:v8"
 import { Heap } from "@/cli/heap"
 import { AppRuntime } from "@/effect/app-runtime"
-import { Effect, Layer } from "effect"
-import { LocalSubagentIndicator } from "@/local/subagent-indicator"
-import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
+import { Effect } from "effect"
 import { disposeAllInstancesAndEmitGlobalDisposed } from "@/server/global-lifecycle"
 
 process.stderr.write("[local-subagent-indicator] WORKER FILE LOADED\n")
@@ -28,25 +26,6 @@ process.on("uncaughtException", onUncaughtException)
 GlobalBus.on("event", (event) => {
   Rpc.emit("global.event", event)
 })
-
-try {
-  AppRuntime.runFork(
-    Layer.launch(AppNodeBuilder.build(LocalSubagentIndicator.node)).pipe(
-      Effect.tapError((error) =>
-        Effect.sync(() =>
-          process.stderr.write(`[local-subagent-indicator] launch failed: ${String(error)}\n`),
-        ),
-      ),
-      Effect.tap(() =>
-        Effect.sync(() =>
-          process.stderr.write("[local-subagent-indicator] WORKER LAUNCH OK\n"),
-        ),
-      ),
-    ),
-  )
-} catch (e) {
-  process.stderr.write(`[local-subagent-indicator] WORKER LAUNCH THREW: ${String(e)}\n`)
-}
 
 let server: Awaited<ReturnType<typeof Server.listen>> | undefined
 
