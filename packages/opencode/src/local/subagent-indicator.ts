@@ -7,7 +7,7 @@ import { LocalSubagentIndicatorEvent } from "@opencode-ai/schema/local-subagent-
 import { SessionID } from "@/session/schema"
 import { Context, Effect, Layer } from "effect"
 
-class Service extends Context.Service<Service, {}>()("@opencode/LocalSubagentIndicator") {}
+export class Service extends Context.Service<Service, {}>()("@opencode/LocalSubagentIndicator") {}
 
 const layer = Layer.effect(
   Service,
