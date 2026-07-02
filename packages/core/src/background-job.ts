@@ -1,10 +1,16 @@
 export * as BackgroundJob from "./background-job"
 
-import { Cause, Clock, Context, Deferred, Effect, Exit, Layer, Scope, SynchronizedRef } from "effect"
+import { Cause, Clock, Context, Deferred, Effect, Exit, Layer, PubSub, Scope, SynchronizedRef } from "effect"
 import { Identifier } from "./id/id"
 import { makeGlobalNode } from "./effect/app-node"
 
 export type Status = "running" | "completed" | "error" | "cancelled"
+
+/** Emitted on every transition in a job's lifecycle. */
+export type LifecycleEvent = {
+  type: "started" | "settled" | "cancelled"
+  info: Info
+}
 
 export type Info = {
   id: string
@@ -34,6 +40,7 @@ type Active = {
 type State = {
   jobs: SynchronizedRef.SynchronizedRef<Map<string, Active>>
   scope: Scope.Scope
+  lifecycle: PubSub.PubSub<LifecycleEvent>
 }
 
 type FinishResult = {
@@ -94,6 +101,7 @@ export interface Interface {
   readonly waitForPromotion: (id: string) => Effect.Effect<Info>
   readonly promote: (id: string) => Effect.Effect<Info | undefined>
   readonly cancel: (id: string) => Effect.Effect<Info | undefined>
+  readonly subscribe: () => Effect.Effect<PubSub.Subscription<LifecycleEvent>, never, Scope.Scope>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/BackgroundJob") {}
@@ -121,6 +129,7 @@ export const make = Effect.gen(function* () {
   const state: State = {
     jobs: yield* SynchronizedRef.make(new Map()),
     scope: yield* Scope.Scope,
+    lifecycle: yield* PubSub.unbounded<LifecycleEvent>(),
   }
 
   const settle = Effect.fn("BackgroundJob.settle")(function* (
@@ -166,6 +175,10 @@ export const make = Effect.gen(function* () {
     if (result.info && result.done) yield* Deferred.succeed(result.done, result.info).pipe(Effect.ignore)
     if (result.scope) {
       yield* Scope.close(result.scope, Exit.void).pipe(Effect.forkIn(state.scope, { startImmediately: true }))
+    }
+    if (result.info && result.info.status !== "running") {
+      const event: LifecycleEvent = { type: "settled", info: result.info }
+      yield* PubSub.publish(state.lifecycle, event)
     }
     return result.info
   })
@@ -240,7 +253,7 @@ export const make = Effect.gen(function* () {
             ]
           }),
         )
-        if ("scope" in result)
+        if ("scope" in result) {
           yield* fork(
             result.scope,
             id,
@@ -248,6 +261,9 @@ export const make = Effect.gen(function* () {
             0,
             restore(input.run).pipe(Effect.ensuring(Deferred.succeed(tail, undefined))),
           )
+          const event: LifecycleEvent = { type: "started", info: result.info }
+          yield* PubSub.publish(state.lifecycle, event)
+        }
         return result.info
       }),
     )
@@ -354,10 +370,18 @@ export const make = Effect.gen(function* () {
     })
     if (result.info && result.done) yield* Deferred.succeed(result.done, result.info).pipe(Effect.ignore)
     if (result.scope) yield* Scope.close(result.scope, Exit.void)
+    if (result.info && result.info.status === "cancelled") {
+      const event: LifecycleEvent = { type: "cancelled", info: result.info }
+      yield* PubSub.publish(state.lifecycle, event)
+    }
     return result.info
   })
 
-  return Service.of({ list, get, start, extend, wait, waitForPromotion, promote, cancel })
+  const subscribe: Interface["subscribe"] = Effect.fn("BackgroundJob.subscribe")(function* () {
+    return yield* PubSub.subscribe(state.lifecycle)
+  })
+
+  return Service.of({ list, get, start, extend, wait, waitForPromotion, promote, cancel, subscribe })
 })
 
 const layer = Layer.effect(Service, make)

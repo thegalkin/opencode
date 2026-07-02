@@ -691,6 +691,10 @@ export type SessionStatus =
   | {
       type: "busy"
     }
+  | {
+      type: "waiting"
+      subagents: number
+    }
 
 export type QuestionOption = {
   /**

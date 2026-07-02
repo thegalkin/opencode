@@ -17,6 +17,10 @@ export function Footer() {
     if (route.data.type !== "session") return []
     return sync.data.permission[route.data.sessionID] ?? []
   })
+  const sessionStatus = createMemo(() => {
+    if (route.data.type !== "session") return undefined
+    return sync.data.session_status[route.data.sessionID]
+  })
   const directory = useDirectory()
   const connected = useConnected()
 
@@ -65,6 +69,17 @@ export function Footer() {
                 <span style={{ fg: theme.warning }}>△</span> {permissions().length} Permission
                 {permissions().length > 1 ? "s" : ""}
               </text>
+            </Show>
+            <Show when={(() => {
+              const status = sessionStatus()
+              return status?.type === "waiting" ? status : undefined
+            })()}>
+              {(status) => (
+                <text fg={theme.text}>
+                  <span style={{ fg: theme.accent }}>⏳</span> {status().subagents} subagent
+                  {status().subagents > 1 ? "s" : ""}
+                </text>
+              )}
             </Show>
             <text fg={theme.text}>
               <span style={{ fg: lsp().length > 0 ? theme.success : theme.textMuted }}>•</span> {lsp().length} LSP
