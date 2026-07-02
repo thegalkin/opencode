@@ -1516,19 +1516,6 @@ export function Prompt(props: PromptProps) {
           />
         </box>
         <box width="100%" flexDirection="row" justifyContent="space-between">
-          <Show when={subagentCount() > 0}>
-            <box flexDirection="row" gap={1} flexShrink={0} marginRight={2}>
-              <Show
-                when={animationsEnabled()}
-                fallback={<text fg={theme.accent}>🐟</text>}
-              >
-                <text fg={theme.accent}>{subagentFrames[subagentFrame()]}</text>
-              </Show>
-              <text fg={theme.accent}>
-                {subagentCount()} subagent{subagentCount() > 1 ? "s" : ""}
-              </text>
-            </box>
-          </Show>
           <Switch>
             <Match when={status().type !== "idle"}>
               <box
@@ -1602,6 +1589,19 @@ export function Prompt(props: PromptProps) {
                     })()}
                   </box>
                 </box>
+                <Show when={subagentCount() > 0}>
+                  <box flexDirection="row" gap={1} flexShrink={0}>
+                    <Show
+                      when={animationsEnabled()}
+                      fallback={<text fg={theme.accent}>🐟</text>}
+                    >
+                      <text fg={theme.accent}>{subagentFrames[subagentFrame()]}</text>
+                    </Show>
+                    <text fg={theme.accent}>
+                      {subagentCount()} subagent{subagentCount() > 1 ? "s" : ""}
+                    </text>
+                  </box>
+                </Show>
                 <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
                   esc{" "}
                   <span style={{ fg: store.interrupt > 0 ? theme.primary : theme.textMuted }}>
