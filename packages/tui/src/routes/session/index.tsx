@@ -48,6 +48,7 @@ import { useDialog } from "../../ui/dialog"
 import { DialogAlert } from "../../ui/dialog-alert"
 import { TodoItem } from "../../component/todo-item"
 import { DialogMessage } from "./dialog-message"
+import { DialogTimestamp } from "./dialog-timestamp"
 import type { PromptInfo } from "../../component/prompt/history"
 import { DialogConfirm } from "../../ui/dialog-confirm"
 import { DialogTimeline } from "./dialog-timeline"
@@ -75,6 +76,13 @@ import { useTuiConfig } from "../../config"
 import { useClipboard } from "../../context/clipboard"
 import { nextThinkingMode, reasoningSummary, useThinkingMode, type ThinkingMode } from "../../context/thinking"
 import { getScrollAcceleration } from "../../util/scroll"
+import {
+  getTimestampsMode,
+  hourMinute,
+  nextTimestampsMode,
+  normalizeTimestampsMode,
+  type TimestampsMode,
+} from "../../util/timestamps"
 import { collapseToolOutput } from "../../util/collapse-tool-output"
 import { usePluginRuntime } from "../../plugin/runtime"
 import { DialogRetryAction } from "../../component/dialog-retry-action"
@@ -161,6 +169,7 @@ const context = createContext<{
   thinkingMode: () => ThinkingMode
   showThinking: () => boolean
   showTimestamps: () => boolean
+  timestampsMode: () => TimestampsMode
   showDetails: () => boolean
   showGenericToolOutput: () => boolean
   diffWrapMode: () => "word" | "none"
@@ -252,7 +261,12 @@ export function Session() {
   const thinking = useThinkingMode()
   const thinkingMode = thinking.mode
   const showThinking = createMemo(() => true)
-  const [timestamps, setTimestamps] = kv.signal<"hide" | "show">("timestamps", "hide")
+  // The kv signal was historically "hide" | "show"; expanded to include "footer"
+  // and "gutter". Default seeded from tui.json (timestamps_mode, default "hide").
+  // Legacy "show" values are normalized to "footer" so users keep their toggle.
+  const timestampsDefault: TimestampsMode = getTimestampsMode(tuiConfig)
+  const [timestampsRaw, setTimestamps] = kv.signal<TimestampsMode>("timestamps", timestampsDefault)
+  const timestamps = createMemo(() => normalizeTimestampsMode(timestampsRaw(), timestampsDefault))
   const [showDetails, setShowDetails] = kv.signal("tool_details_visibility", true)
   const [showAssistantMetadata, _setShowAssistantMetadata] = kv.signal("assistant_metadata_visibility", true)
   const [showScrollbar, setShowScrollbar] = kv.signal("scrollbar_visible", false)
@@ -267,7 +281,11 @@ export function Session() {
     if (sidebar() === "auto" && wide()) return true
     return false
   })
-  const showTimestamps = createMemo(() => timestamps() === "show")
+  // Backwards-compatible alias: existing call sites that gate the footer-style
+  // timestamp render check `showTimestamps()`. It now means "render the footer",
+  // which is the "footer" mode only — gutter mode renders the time elsewhere.
+  const timestampsMode = createMemo<TimestampsMode>(() => timestamps())
+  const showTimestamps = createMemo(() => timestampsMode() === "footer")
   const contentWidth = createMemo(() => dimensions().width - (sidebarVisible() ? 42 : 0) - 4)
   const providers = createMemo(() => Model.index(sync.data.provider))
 
@@ -686,7 +704,12 @@ export function Session() {
       },
     },
     {
-      title: showTimestamps() ? "Hide timestamps" : "Show timestamps",
+      title: (() => {
+        const next = nextTimestampsMode(timestampsMode())
+        if (next === "hide") return "Hide timestamps"
+        if (next === "footer") return "Show timestamps under message"
+        return "Show timestamps in gutter"
+      })(),
       value: "session.toggle.timestamps",
       category: "Session",
       slash: {
@@ -694,7 +717,8 @@ export function Session() {
         aliases: ["toggle-timestamps"],
       },
       run: () => {
-        setTimestamps((prev) => (prev === "show" ? "hide" : "show"))
+        const next = nextTimestampsMode(timestampsMode())
+        setTimestamps(() => next)
         dialog.clear()
       },
     },
@@ -1154,6 +1178,7 @@ export function Session() {
           thinkingMode,
           showThinking,
           showTimestamps,
+          timestampsMode,
           showDetails,
           showGenericToolOutput,
           diffWrapMode,
@@ -1356,6 +1381,7 @@ function UserMessage(props: {
 }) {
   const ctx = use()
   const local = useLocal()
+  const dialog = useDialog()
   const text = createMemo(() => {
     const texts = props.parts
       .map((x) => {
@@ -1374,68 +1400,87 @@ function UserMessage(props: {
   const color = createMemo(() => local.agent.color(props.message.agent))
   const queuedFg = createMemo(() => selectedForeground(theme, color()))
   const metadataVisible = createMemo(() => queued() || ctx.showTimestamps())
+  const isGutter = createMemo(() => ctx.timestampsMode() === "gutter")
 
   const compaction = createMemo(() => props.parts.find((x) => x.type === "compaction"))
 
   return (
     <>
       <Show when={text()}>
-        <box
-          id={props.message.id}
-          ref={(el: BoxRenderable) => alwaysSeparate.add(el)}
-          border={["left"]}
-          borderColor={color()}
-          customBorderChars={SplitBorder.customBorderChars}
-          marginTop={props.index === 0 ? 0 : 1}
-        >
-          <box
-            onMouseOver={() => {
-              setHover(true)
-            }}
-            onMouseOut={() => {
-              setHover(false)
-            }}
-            onMouseUp={props.onMouseUp}
-            paddingTop={1}
-            paddingBottom={1}
-            paddingLeft={2}
-            backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
-            flexShrink={0}
-          >
-            <text fg={theme.text}>{text()}</text>
-            <Show when={files().length}>
-              <box flexDirection="row" paddingBottom={metadataVisible() ? 1 : 0} paddingTop={1} gap={1} flexWrap="wrap">
-                <For each={files()}>
-                  {(file) => {
-                    const directory = file.mime === "application/x-directory"
-                    return (
-                      <text fg={theme.text}>
-                        <span style={{ bg: theme.secondary, fg: theme.background }}>
-                          {directory ? " Directory " : " File "}
-                        </span>
-                        <span style={{ bg: theme.backgroundElement, fg: theme.textMuted }}> {file.filename} </span>
-                      </text>
-                    )
-                  }}
-                </For>
-              </box>
-            </Show>
-            <Show
-              when={queued()}
-              fallback={
-                <Show when={ctx.showTimestamps()}>
-                  <text fg={theme.textMuted}>
-                    <span style={{ fg: theme.textMuted }}>
-                      {Locale.todayTimeOrDateTime(props.message.time.created)}
-                    </span>
-                  </text>
-                </Show>
-              }
+        <box flexDirection="row" marginTop={props.index === 0 ? 0 : 1} flexShrink={0}>
+          <Show when={isGutter()}>
+            <box
+              width={TIMESTAMP_GUTTER_WIDTH}
+              paddingTop={1}
+              flexShrink={0}
+              onMouseUp={() => DialogTimestamp.show(dialog, props.message.time.created)}
             >
-              <text fg={theme.textMuted}>
-                <span style={{ bg: color(), fg: queuedFg(), bold: true }}> QUEUED </span>
-              </text>
-            </Show>
+              <text fg={theme.textMuted}>{hourMinute(props.message.time.created)}</text>
+            </box>
+          </Show>
+          <box
+            id={props.message.id}
+            ref={(el: BoxRenderable) => alwaysSeparate.add(el)}
+            border={["left"]}
+            borderColor={color()}
+            customBorderChars={SplitBorder.customBorderChars}
+            flexGrow={1}
+          >
+            <box
+              onMouseOver={() => {
+                setHover(true)
+              }}
+              onMouseOut={() => {
+                setHover(false)
+              }}
+              onMouseUp={props.onMouseUp}
+              paddingTop={1}
+              paddingBottom={1}
+              paddingLeft={2}
+              backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
+              flexShrink={0}
+            >
+              <text fg={theme.text}>{text()}</text>
+              <Show when={files().length}>
+                <box
+                  flexDirection="row"
+                  paddingBottom={metadataVisible() ? 1 : 0}
+                  paddingTop={1}
+                  gap={1}
+                  flexWrap="wrap"
+                >
+                  <For each={files()}>
+                    {(file) => {
+                      const directory = file.mime === "application/x-directory"
+                      return (
+                        <text fg={theme.text}>
+                          <span style={{ bg: theme.secondary, fg: theme.background }}>
+                            {directory ? " Directory " : " File "}
+                          </span>
+                          <span style={{ bg: theme.backgroundElement, fg: theme.textMuted }}> {file.filename} </span>
+                        </text>
+                      )
+                    }}
+                  </For>
+                </box>
+              </Show>
+              <Show
+                when={queued()}
+                fallback={
+                  <Show when={ctx.showTimestamps()}>
+                    <text fg={theme.textMuted}>
+                      <span style={{ fg: theme.textMuted }}>
+                        {Locale.todayTimeOrDateTime(props.message.time.created)}
+                      </span>
+                    </text>
+                  </Show>
+                }
+              >
+                <text fg={theme.textMuted}>
+                  <span style={{ bg: color(), fg: queuedFg(), bold: true }}> QUEUED </span>
+                </text>
+              </Show>
+            </box>
           </box>
         </box>
       </Show>
@@ -1455,6 +1500,7 @@ function UserMessage(props: {
 function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; last: boolean }) {
   const ctx = use()
   const local = useLocal()
+  const dialog = useDialog()
   const { theme } = useTheme()
   const sync = useSync()
   const messages = createMemo(() => sync.data.message[props.message.sessionID] ?? [])
@@ -1474,8 +1520,11 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
 
   const childShortcut = useCommandShortcut("session.child.first")
   const backgroundShortcut = useCommandShortcut("session.background")
+  const isGutter = createMemo(() => ctx.timestampsMode() === "gutter")
 
-  return (
+  // Assistant message body — rendered as-is when timestamps_mode != "gutter", or
+  // wrapped in a horizontal row alongside a gutter cell when "gutter" is active.
+  const body = () => (
     <>
       <For each={props.parts}>
         {(part, index) => {
@@ -1559,6 +1608,30 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
       </Switch>
     </>
   )
+
+  return (
+    <Show when={isGutter()} fallback={body()}>
+      {/* In gutter mode, lay the message row out horizontally: HH:MM column on
+       * the left, message content on the right. The first part of an assistant
+       * message has marginTop=1 (TextPart/ReasoningPart/ToolPart all do), so
+       * the gutter uses the same paddingTop to align vertically with the first
+       * line of text. flexShrink=0 on the gutter keeps it from collapsing on
+       * narrow terminals; the body column gets flexGrow=1 to take the rest. */}
+      <box flexDirection="row" flexShrink={0}>
+        <box
+          width={TIMESTAMP_GUTTER_WIDTH}
+          paddingTop={1}
+          flexShrink={0}
+          onMouseUp={() => DialogTimestamp.show(dialog, props.message.time.created)}
+        >
+          <text fg={theme.textMuted}>{hourMinute(props.message.time.created)}</text>
+        </box>
+        <box flexDirection="column" flexGrow={1}>
+          {body()}
+        </box>
+      </box>
+    </Show>
+  )
 }
 
 const PART_MAPPING = {
@@ -1566,6 +1639,10 @@ const PART_MAPPING = {
   tool: ToolPart,
   reasoning: ReasoningPart,
 }
+
+// Fixed gutter width: 5 cells for "HH:MM" + 1 trailing space. Hardcoded so the
+// gutter column stays aligned across messages and never depends on locale.
+const TIMESTAMP_GUTTER_WIDTH = 6
 
 const INLINE_TOOL_ICON_WIDTH = 2
 
