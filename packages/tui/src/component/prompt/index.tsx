@@ -1518,10 +1518,7 @@ export function Prompt(props: PromptProps) {
         <box width="100%" flexDirection="row" justifyContent="space-between">
           <Show when={subagentCount() > 0}>
             <box flexDirection="row" gap={1} flexShrink={0}>
-              <Show
-                when={animationsEnabled()}
-                fallback={<text fg={theme.accent}>🐟</text>}
-              >
+              <Show when={animationsEnabled()} fallback={<text fg={theme.accent}>🐟</text>}>
                 <text fg={theme.accent}>{subagentFrames[subagentFrame()]}</text>
               </Show>
               <text fg={theme.accent}>

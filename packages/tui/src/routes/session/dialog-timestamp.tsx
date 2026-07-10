@@ -1,8 +1,8 @@
 import { TextAttributes } from "@opentui/core"
-import { useTheme } from "../context/theme"
-import { useDialog, type DialogContext } from "../ui/dialog"
-import { useBindings } from "../keymap"
-import { dayMonthYearHourMinuteSecond } from "../util/timestamps"
+import { useTheme } from "../../context/theme"
+import { useDialog, type DialogContext } from "../../ui/dialog"
+import { useBindings } from "../../keymap"
+import { dayMonthYearHourMinuteSecond } from "../../util/timestamps"
 
 export type DialogTimestampProps = {
   created: number

@@ -141,6 +141,7 @@ packages/schema/src/local-subagent-indicator-event.ts` and reverting the
    drops as each subagent finishes, indicator disappears when all done
 
 If nothing shows up, check:
+
 - `opencode --version` returns `0.0.0-feat/tui-subagent-indicator-...`
 - The env var is set in the same shell as `opencode`
 - The main agent actually called the `task` tool with `background=true`
